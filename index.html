@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArchiForge 3D — v0.1.1</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">A</div>
+    <div><div class="brand-name">ARCHIFORGE</div><div class="brand-sub">3D ARCHITECTURAL STUDIO · v0.1.1</div></div>
+  </div>
+  <div class="project-title"><span class="status-dot"></span><span data-i18n="untitled">Без названия</span></div>
+  <div class="top-actions">
+    <select id="language" class="language" aria-label="Language">
+      <option value="ru">RU · Русский</option>
+      <option value="tj">TJ · Тоҷикӣ</option>
+    </select>
+    <button class="top-btn" id="newProject" data-i18n="new">＋ Новый</button>
+    <button class="top-btn" id="saveProject" data-i18n="save">Сохранить</button>
+    <button class="top-btn primary" id="exportImage" data-i18n="export">Экспорт PNG</button>
+  </div>
+</header>
+
+<main class="workspace">
+<aside class="toolbar">
+  <div class="tool-section-title" data-i18n="create">СОЗДАНИЕ</div>
+  <button class="tool active" data-tool="select"><span>⌁</span><small data-i18n="select">Выбор</small></button>
+  <button class="tool" data-tool="wall"><span>▱</span><small data-i18n="wall">Стена</small></button>
+  <button class="tool" data-tool="room"><span>□</span><small data-i18n="room">Комната</small></button>
+  <button class="tool" data-tool="door"><span>⌑</span><small data-i18n="door">Дверь</small></button>
+  <button class="tool" data-tool="window"><span>▥</span><small data-i18n="window">Окно</small></button>
+  <div class="tool-divider"></div>
+  <div class="tool-section-title" data-i18n="view">ВИД</div>
+  <button class="tool" id="topView"><span>⊞</span><small data-i18n="top">Сверху</small></button>
+  <button class="tool" id="homeView"><span>⌂</span><small data-i18n="home">Главный</small></button>
+</aside>
+
+<section class="viewport-wrap">
+  <div id="viewport"></div>
+  <div class="viewport-overlay top-left"><div class="mode-pill"><span class="green-dot"></span><span data-i18n="perspective">3D ПЕРСПЕКТИВА</span></div></div>
+  <div class="viewport-overlay top-right"><div class="axis"><span class="axis-y">Y</span><span class="axis-x">X</span><span class="axis-z">Z</span></div></div>
+  <div class="viewport-overlay bottom-left"><div class="hint" data-i18n="controls">ЛКМ — вращение · ПКМ — перемещение · Колесо — масштаб</div></div>
+  <div class="viewport-overlay bottom-right"><div class="coords">X <b id="coordX">0.00</b> &nbsp; Y <b id="coordY">0.00</b> &nbsp; Z <b id="coordZ">0.00</b></div></div>
+</section>
+
+<aside class="properties">
+  <div class="panel-header"><span data-i18n="properties">СВОЙСТВА</span><button id="closeProperties">×</button></div>
+  <div id="emptyProperties" class="empty-state">
+    <div class="empty-icon">◇</div>
+    <strong data-i18n="noSelected">Объект не выбран</strong>
+    <p data-i18n="selectHint">Выберите объект на сцене, чтобы посмотреть его свойства.</p>
+  </div>
+  <div id="propertiesContent" class="hidden">
+    <div class="object-title"><div class="object-icon">□</div><div><strong id="objectName">Object</strong><span id="objectType">Element</span></div></div>
+    <label data-i18n="position">Положение</label>
+    <div class="field-row"><div><span>X</span><input id="posX" type="number" step="0.1"></div><div><span>Y</span><input id="posY" type="number" step="0.1"></div><div><span>Z</span><input id="posZ" type="number" step="0.1"></div></div>
+    <label data-i18n="dimensions">Размеры</label>
+    <div class="field-row"><div><span>W</span><input id="dimX" type="number" step="0.1"></div><div><span>H</span><input id="dimY" type="number" step="0.1"></div><div><span>D</span><input id="dimZ" type="number" step="0.1"></div></div>
+    <label data-i18n="material">Материал</label>
+    <select id="material">
+      <option value="Concrete" data-i18n="concrete">Бетон</option><option value="Brick" data-i18n="brick">Кирпич</option><option value="Glass" data-i18n="glass">Стекло</option><option value="Wood" data-i18n="wood">Дерево</option><option value="Steel" data-i18n="steel">Сталь</option>
+    </select>
+    <button class="danger" id="deleteObject" data-i18n="delete">Удалить объект</button>
+  </div>
+  <div class="panel-footer"><div><span data-i18n="grid">Сетка</span><b>1.00 m</b></div><div><span data-i18n="units">Единицы</span><b data-i18n="metric">Метрические</b></div></div>
+</aside>
+</main>
+<footer class="statusbar"><div>ARCHIFORGE ENGINE</div><div id="objectCount">0 objects</div><div>WebGL · Ready</div></footer>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
+</script>
+<script src="i18n.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
