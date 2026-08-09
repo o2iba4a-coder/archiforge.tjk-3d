@@ -1,68 +1,133 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
 import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js";
 
-/* =========================================================
-   ARCHIFORGE 3D v0.4.1
-   ========================================================= */
+/* ============================================================
+   ARCHIFORGE 3D v0.5
+   Professional architectural prototype
+   ============================================================ */
 
 const $ = id => document.getElementById(id);
 
 const viewport = $("viewport");
 
-/* =========================================================
+if (!viewport) {
+  throw new Error("ArchiForge: #viewport not found");
+}
+
+
+/* ============================================================
+   BASIC STATE
+   ============================================================ */
+
+let currentTool = "select";
+
+let selected = null;
+
+let wallStart = null;
+let previewWall = null;
+
+let measureStart = null;
+let measureLine = null;
+let measureLabel = null;
+
+let objectCounter = 1;
+let wallCounter = 1;
+
+const objects = [];
+
+const undoStack = [];
+const redoStack = [];
+
+let restoring = false;
+
+
+/* ============================================================
    SCENE
-   ========================================================= */
+   ============================================================ */
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0c1014);
 
-const camera = new THREE.PerspectiveCamera(
-  45,
-  1,
-  0.1,
-  500
+scene.background =
+  new THREE.Color(0x0c1014);
+
+
+/* ============================================================
+   CAMERA
+   ============================================================ */
+
+const camera =
+  new THREE.PerspectiveCamera(
+    45,
+    1,
+    0.1,
+    500
+  );
+
+camera.position.set(
+  12,
+  10,
+  14
 );
 
-camera.position.set(12, 10, 14);
 
-const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-  preserveDrawingBuffer: true
-});
+/* ============================================================
+   RENDERER
+   ============================================================ */
+
+const renderer =
+  new THREE.WebGLRenderer({
+    antialias: true,
+    preserveDrawingBuffer: true
+  });
 
 renderer.setPixelRatio(
-  Math.min(window.devicePixelRatio || 1, 2)
+  Math.min(
+    window.devicePixelRatio || 1,
+    2
+  )
 );
 
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.outputColorSpace =
+  THREE.SRGBColorSpace;
+
 renderer.shadowMap.enabled = true;
 
-viewport.appendChild(renderer.domElement);
-
-
-/* =========================================================
-   CAMERA CONTROLS
-   ========================================================= */
-
-const controls = new OrbitControls(
-  camera,
+viewport.appendChild(
   renderer.domElement
 );
 
+
+/* ============================================================
+   CAMERA CONTROLS
+   ============================================================ */
+
+const controls =
+  new OrbitControls(
+    camera,
+    renderer.domElement
+  );
+
 controls.enableDamping = true;
+
 controls.dampingFactor = 0.07;
 
-controls.target.set(0, 1, 0);
+controls.target.set(
+  0,
+  1,
+  0
+);
 
 controls.minDistance = 2;
+
 controls.maxDistance = 100;
 
-controls.maxPolarAngle = Math.PI / 2.02;
+controls.maxPolarAngle =
+  Math.PI / 2.02;
 
 
-/* =========================================================
-   LIGHT
-   ========================================================= */
+/* ============================================================
+   LIGHTING
+   ============================================================ */
 
 scene.add(
   new THREE.HemisphereLight(
@@ -72,211 +137,787 @@ scene.add(
   )
 );
 
-const sun = new THREE.DirectionalLight(
-  0xffffff,
-  2.5
+const sun =
+  new THREE.DirectionalLight(
+    0xffffff,
+    2.5
+  );
+
+sun.position.set(
+  8,
+  14,
+  8
 );
 
-sun.position.set(8, 14, 8);
 sun.castShadow = true;
 
 scene.add(sun);
 
 
-/* =========================================================
+/* ============================================================
    GRID
-   ========================================================= */
+   ============================================================ */
 
-const grid = new THREE.GridHelper(
-  40,
-  80,
-  0x4b5662,
-  0x252c34
-);
+const grid =
+  new THREE.GridHelper(
+    40,
+    80,
+    0x4b5662,
+    0x252c34
+  );
 
 scene.add(grid);
 
 
-/* =========================================================
+/* ============================================================
    FLOOR
-   ========================================================= */
+   ============================================================ */
 
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({
-    color: 0x11161b,
-    roughness: 0.9
-  })
-);
+const floor =
+  new THREE.Mesh(
+    new THREE.PlaneGeometry(
+      40,
+      40
+    ),
+    new THREE.MeshStandardMaterial({
+      color: 0x11161b,
+      roughness: 0.9
+    })
+  );
 
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -0.01;
+floor.rotation.x =
+  -Math.PI / 2;
 
-floor.receiveShadow = true;
+floor.position.y =
+  -0.01;
+
+floor.receiveShadow =
+  true;
 
 scene.add(floor);
 
 
-/* =========================================================
+/* ============================================================
    REMOVE LOADING
-   ========================================================= */
+   ============================================================ */
 
-const loading = $("loading");
-
-if (loading) {
-  loading.remove();
+if ($("loading")) {
+  $("loading").remove();
 }
 
 
-/* =========================================================
-   OBJECT STORAGE
-   ========================================================= */
+/* ============================================================
+   MATERIALS
+   ============================================================ */
 
-const objects = [];
+const MATERIAL_COLORS = {
 
-let selected = null;
+  Concrete: 0x8f9aa6,
 
-let currentTool = "select";
+  Brick: 0x8d6254,
 
-let wallStart = null;
-let previewWall = null;
+  Glass: 0x6f8799,
 
-let wallNumber = 1;
+  Wood: 0x8c6d4c,
 
+  Steel: 0x68747f
 
-/* =========================================================
-   UNDO / REDO
-   ========================================================= */
-
-const undoStack = [];
-const redoStack = [];
-
-let restoring = false;
+};
 
 
-function saveHistory() {
+function materialColor(name) {
 
-  if (restoring) return;
-
-  undoStack.push(
-    JSON.stringify(getSceneData())
+  return (
+    MATERIAL_COLORS[name] ||
+    MATERIAL_COLORS.Concrete
   );
 
-  redoStack.length = 0;
-
-  updateHistoryButtons();
 }
 
 
-function getSceneData() {
+/* ============================================================
+   RAYCAST
+   ============================================================ */
 
-  return objects.map(object => {
+const raycaster =
+  new THREE.Raycaster();
 
-    return {
+const pointer =
+  new THREE.Vector2();
 
-      name: object.name,
-
-      type: object.userData.type,
-
-      position: object.position.toArray(),
-
-      rotation: object.rotation.toArray(),
-
-      scale: object.scale.toArray(),
-
-      size: {
-        ...object.userData.size
-      },
-
-      material:
-        object.userData.material || "Concrete",
-
-      thickness:
-        object.userData.thickness || null,
-
-      opacity:
-        object.userData.opacity ?? null
-
-    };
-
-  });
-
-}
+const groundPlane =
+  new THREE.Plane(
+    new THREE.Vector3(
+      0,
+      1,
+      0
+    ),
+    0
+  );
 
 
-function restoreScene(data) {
+function screenPointer(event) {
 
-  restoring = true;
+  const rect =
+    renderer.domElement
+      .getBoundingClientRect();
 
-  objects.forEach(object => {
+  pointer.x =
+    (
+      (event.clientX - rect.left) /
+      rect.width
+    ) * 2 - 1;
 
-    scene.remove(object);
-
-  });
-
-  objects.length = 0;
-
-  selected = null;
-
-  data.forEach(dataObject => {
-
-    createFromData(dataObject);
-
-  });
-
-  restoring = false;
-
-  updateProperties();
-
-  updateHistoryButtons();
+  pointer.y =
+    -(
+      (event.clientY - rect.top) /
+      rect.height
+    ) * 2 + 1;
 
 }
 
 
-function createFromData(data) {
+/* ============================================================
+   GROUND POINT + GRID SNAP
+   ============================================================ */
 
-  let object;
+function groundPoint(event) {
 
-  if (data.type === "ImageReference") {
+  screenPointer(event);
 
-    const material =
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: data.opacity ?? 1,
-        side: THREE.DoubleSide
-      });
+  raycaster.setFromCamera(
+    pointer,
+    camera
+  );
 
-    object = new THREE.Mesh(
-      new THREE.PlaneGeometry(
-        data.size.x,
-        data.size.y
-      ),
-      material
+  const point =
+    new THREE.Vector3();
+
+  const hit =
+    raycaster.ray.intersectPlane(
+      groundPlane,
+      point
     );
+
+  if (!hit) return null;
+
+  const snap = 0.5;
+
+  point.x =
+    Math.round(
+      point.x / snap
+    ) * snap;
+
+  point.z =
+    Math.round(
+      point.z / snap
+    ) * snap;
+
+  point.y = 0;
+
+  return point;
+
+}
+
+
+/* ============================================================
+   STRAIGHT ANGLE SNAP
+   ============================================================ */
+
+function snapDirection(
+  start,
+  end,
+  forceStraight = false
+) {
+
+  const result =
+    end.clone();
+
+  if (!forceStraight) {
+
+    return result;
+
+  }
+
+  const dx =
+    Math.abs(
+      end.x - start.x
+    );
+
+  const dz =
+    Math.abs(
+      end.z - start.z
+    );
+
+  if (dx >= dz) {
+
+    result.z =
+      start.z;
 
   } else {
 
-    object = new THREE.Mesh(
+    result.x =
+      start.x;
+
+  }
+
+  return result;
+
+}
+
+
+/* ============================================================
+   OBJECT HELPERS
+   ============================================================ */
+
+function addObject(
+  object,
+  type,
+  size,
+  material = "Concrete"
+) {
+
+  object.userData = {
+
+    type,
+
+    size: {
+      ...size
+    },
+
+    material,
+
+    thickness:
+      type === "Wall"
+        ? size.z
+        : undefined
+
+  };
+
+  object.castShadow = true;
+
+  object.receiveShadow = true;
+
+  scene.add(object);
+
+  objects.push(object);
+
+  return object;
+
+}
+
+
+/* ============================================================
+   DEFAULT ARCHITECTURAL BLOCKS
+   ============================================================ */
+
+function createBox(
+  position,
+  size,
+  name = null
+) {
+
+  const mesh =
+    new THREE.Mesh(
 
       new THREE.BoxGeometry(
-        data.size.x,
-        data.size.y,
-        data.size.z
+        size.x,
+        size.y,
+        size.z
       ),
 
       new THREE.MeshStandardMaterial({
-        color: materialColor(
-          data.material
-        ),
+        color:
+          materialColor(
+            "Concrete"
+          ),
         roughness: 0.65
       })
 
     );
 
+  mesh.position.copy(
+    position
+  );
+
+  mesh.name =
+    name ||
+    `Object ${objectCounter++}`;
+
+  addObject(
+    mesh,
+    "Box",
+    size
+  );
+
+  return mesh;
+
+}
+
+
+/* Initial building volume */
+
+const mainBuilding =
+  createBox(
+    new THREE.Vector3(
+      0,
+      1.5,
+      0
+    ),
+    {
+      x: 8,
+      y: 3,
+      z: 6
+    },
+    "Main Volume"
+  );
+
+mainBuilding.userData.type =
+  "Building";
+
+
+const upperBuilding =
+  createBox(
+    new THREE.Vector3(
+      0.8,
+      3.7,
+      -0.2
+    ),
+    {
+      x: 5.4,
+      y: 1.4,
+      z: 4.2
+    },
+    "Upper Volume"
+  );
+
+upperBuilding.userData.type =
+  "Building";
+
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+
+function clearHighlight() {
+
+  if (!selected)
+    return;
+
+  if (
+    selected.material &&
+    selected.userData &&
+    selected.userData.originalColor
+      !== undefined
+  ) {
+
+    selected.material.color.setHex(
+      selected.userData.originalColor
+    );
+
   }
 
-  object.name = data.name;
+}
+
+
+function highlight(object) {
+
+  if (
+    !object ||
+    !object.material ||
+    !object.material.color
+  ) {
+    return;
+  }
+
+  object.userData.originalColor =
+    object.material.color.getHex();
+
+  object.material.color.offsetHSL(
+    0,
+    0,
+    0.13
+  );
+
+}
+
+
+function selectObject(object) {
+
+  clearHighlight();
+
+  selected =
+    object || null;
+
+  if (selected) {
+
+    highlight(
+      selected
+    );
+
+  }
+
+  updateProperties();
+
+}
+
+
+/* ============================================================
+   PROPERTIES
+   ============================================================ */
+
+function updateProperties() {
+
+  const empty =
+    $("empty");
+
+  const content =
+    $("content");
+
+  if (!selected) {
+
+    if (empty)
+      empty.hidden = false;
+
+    if (content)
+      content.hidden = true;
+
+    return;
+
+  }
+
+  if (empty)
+    empty.hidden = true;
+
+  if (content)
+    content.hidden = false;
+
+
+  if ($("oname"))
+    $("oname").textContent =
+      selected.name;
+
+  if ($("otype"))
+    $("otype").textContent =
+      selected.userData.type ||
+      "Object";
+
+
+  if ($("px"))
+    $("px").value =
+      selected.position.x.toFixed(2);
+
+  if ($("py"))
+    $("py").value =
+      selected.position.y.toFixed(2);
+
+  if ($("pz"))
+    $("pz").value =
+      selected.position.z.toFixed(2);
+
+
+  if ($("sx"))
+    $("sx").value =
+      selected.userData.size.x.toFixed(2);
+
+  if ($("sy"))
+    $("sy").value =
+      selected.userData.size.y.toFixed(2);
+
+  if ($("sz"))
+    $("sz").value =
+      selected.userData.size.z.toFixed(2);
+
+
+  if ($("wallprops")) {
+
+    $("wallprops").hidden =
+      selected.userData.type !==
+      "Wall";
+
+  }
+
+
+  if ($("imageprops")) {
+
+    $("imageprops").hidden =
+      selected.userData.type !==
+      "ImageReference";
+
+  }
+
+
+  if ($("mat")) {
+
+    $("mat").value =
+      selected.userData.material ||
+      "Concrete";
+
+  }
+
+
+  if (
+    selected.userData.type ===
+    "Wall" &&
+    $("thick")
+  ) {
+
+    $("thick").value =
+      selected.userData
+        .thickness ||
+      0.2;
+
+  }
+
+
+  if (
+    selected.userData.type ===
+    "ImageReference" &&
+    $("opacity")
+  ) {
+
+    $("opacity").value =
+      selected.userData
+        .opacity ??
+      1;
+
+  }
+
+}
+
+
+/* ============================================================
+   HISTORY SERIALIZATION
+   ============================================================ */
+
+function serializeScene() {
+
+  return objects.map(
+    object => {
+
+      return {
+
+        name:
+          object.name,
+
+        type:
+          object.userData.type,
+
+        position:
+          object.position.toArray(),
+
+        rotation:
+          object.rotation.toArray(),
+
+        scale:
+          object.scale.toArray(),
+
+        size: {
+          ...object.userData.size
+        },
+
+        material:
+          object.userData.material,
+
+        thickness:
+          object.userData.thickness,
+
+        opacity:
+          object.userData.opacity
+
+      };
+
+    }
+  );
+
+}
+
+
+function saveHistory() {
+
+  if (restoring)
+    return;
+
+  undoStack.push(
+    JSON.stringify(
+      serializeScene()
+    )
+  );
+
+  if (
+    undoStack.length > 50
+  ) {
+
+    undoStack.shift();
+
+  }
+
+  redoStack.length = 0;
+
+  updateHistoryButtons();
+
+}
+
+
+/* ============================================================
+   RESTORE
+   ============================================================ */
+
+function clearSceneObjects() {
+
+  objects.forEach(
+    object => {
+
+      scene.remove(
+        object
+      );
+
+      if (
+        object.geometry
+      ) {
+
+        object.geometry.dispose();
+
+      }
+
+      if (
+        object.material
+      ) {
+
+        if (
+          object.material.map
+        ) {
+
+          object.material.map.dispose();
+
+        }
+
+        object.material.dispose();
+
+      }
+
+    }
+  );
+
+  objects.length = 0;
+
+}
+
+
+function recreateObject(data) {
+
+  let object;
+
+
+  /* IMAGE */
+
+  if (
+    data.type ===
+    "ImageReference"
+  ) {
+
+    const material =
+      new THREE.MeshBasicMaterial({
+
+        color: 0xffffff,
+
+        transparent: true,
+
+        opacity:
+          data.opacity ??
+          1,
+
+        side:
+          THREE.DoubleSide
+
+      });
+
+
+    object =
+      new THREE.Mesh(
+
+        new THREE.PlaneGeometry(
+          data.size.x,
+          data.size.y
+        ),
+
+        material
+
+      );
+
+
+    object.rotation.x =
+      -Math.PI / 2;
+
+
+    object.userData = {
+
+      type:
+        "ImageReference",
+
+      size: {
+        ...data.size
+      },
+
+      material:
+        "Image",
+
+      opacity:
+        data.opacity ??
+        1
+
+    };
+
+  }
+
+  else {
+
+    object =
+      new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+          data.size.x,
+          data.size.y,
+          data.size.z
+        ),
+
+        new THREE.MeshStandardMaterial({
+
+          color:
+            materialColor(
+              data.material
+            ),
+
+          roughness: 0.65
+
+        })
+
+      );
+
+
+    object.userData = {
+
+      type:
+        data.type,
+
+      size: {
+        ...data.size
+      },
+
+      material:
+        data.material ||
+        "Concrete",
+
+      thickness:
+        data.thickness
+
+    };
+
+  }
+
+
+  object.name =
+    data.name;
 
   object.position.fromArray(
     data.position
@@ -291,87 +932,142 @@ function createFromData(data) {
   );
 
   object.castShadow = true;
+
   object.receiveShadow = true;
 
-  object.userData = {
-    type: data.type,
+  scene.add(
+    object
+  );
 
-    size: {
-      ...data.size
-    },
+  objects.push(
+    object
+  );
 
-    material:
-      data.material || "Concrete",
-
-    thickness:
-      data.thickness,
-
-    opacity:
-      data.opacity
-  };
-
-  scene.add(object);
-
-  objects.push(object);
-
-  return object;
 }
 
 
-function undo() {
+function restoreScene(data) {
 
-  if (!undoStack.length) return;
+  restoring = true;
 
-  redoStack.push(
-    JSON.stringify(getSceneData())
+  clearSceneObjects();
+
+  selected = null;
+
+  data.forEach(
+    item => {
+
+      recreateObject(
+        item
+      );
+
+    }
   );
 
-  const previous =
-    JSON.parse(undoStack.pop());
+  restoring = false;
 
-  restoreScene(previous);
+  updateProperties();
+
+  updateHistoryButtons();
+
+}
+
+
+/* ============================================================
+   UNDO / REDO
+   ============================================================ */
+
+function undo() {
+
+  if (
+    undoStack.length === 0
+  ) {
+
+    return;
+
+  }
+
+  redoStack.push(
+    JSON.stringify(
+      serializeScene()
+    )
+  );
+
+  const state =
+    JSON.parse(
+      undoStack.pop()
+    );
+
+  restoreScene(
+    state
+  );
+
+  playSound();
 
 }
 
 
 function redo() {
 
-  if (!redoStack.length) return;
+  if (
+    redoStack.length === 0
+  ) {
+
+    return;
+
+  }
 
   undoStack.push(
-    JSON.stringify(getSceneData())
+    JSON.stringify(
+      serializeScene()
+    )
   );
 
-  const next =
-    JSON.parse(redoStack.pop());
+  const state =
+    JSON.parse(
+      redoStack.pop()
+    );
 
-  restoreScene(next);
+  restoreScene(
+    state
+  );
+
+  playSound();
 
 }
 
 
 function updateHistoryButtons() {
 
-  const undoButton = $("undo");
-  const redoButton = $("redo");
+  const undo =
+    $("undo");
 
-  if (undoButton) {
+  const redo =
+    $("redo");
 
-    undoButton.disabled =
+
+  if (undo) {
+
+    undo.disabled =
       undoStack.length === 0;
 
-    undoButton.style.opacity =
-      undoStack.length ? "1" : "0.35";
+    undo.style.opacity =
+      undo.disabled
+        ? "0.35"
+        : "1";
 
   }
 
-  if (redoButton) {
 
-    redoButton.disabled =
+  if (redo) {
+
+    redo.disabled =
       redoStack.length === 0;
 
-    redoButton.style.opacity =
-      redoStack.length ? "1" : "0.35";
+    redo.style.opacity =
+      redo.disabled
+        ? "0.35"
+        : "1";
 
   }
 
@@ -389,348 +1085,39 @@ $("redo")?.addEventListener(
 );
 
 
-/* =========================================================
-   MATERIAL COLORS
-   ========================================================= */
-
-function materialColor(material) {
-
-  const colors = {
-
-    Concrete: 0x8f9aa6,
-
-    Brick: 0x8d6254,
-
-    Glass: 0x6f8799,
-
-    Wood: 0x8c6d4c,
-
-    Steel: 0x68747f
-
-  };
-
-  return colors[material] || colors.Concrete;
-
-}
-
-
-/* =========================================================
-   ADD BASIC BUILDING
-   ========================================================= */
-
-function addBox(
-  name,
-  type,
-  position,
-  size,
-  material = "Concrete"
-) {
-
-  const mesh = new THREE.Mesh(
-
-    new THREE.BoxGeometry(
-      size.x,
-      size.y,
-      size.z
-    ),
-
-    new THREE.MeshStandardMaterial({
-
-      color: materialColor(material),
-
-      roughness: 0.65
-
-    })
-
-  );
-
-  mesh.name = name;
-
-  mesh.position.set(
-    position.x,
-    position.y,
-    position.z
-  );
-
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-
-  mesh.userData = {
-
-    type,
-
-    size: {
-      ...size
-    },
-
-    material
-
-  };
-
-  scene.add(mesh);
-
-  objects.push(mesh);
-
-  return mesh;
-
-}
-
-
-/* =========================================================
-   DEFAULT BUILDING
-   ========================================================= */
-
-addBox(
-  "Main Volume",
-  "Building",
-  {
-    x: 0,
-    y: 1.5,
-    z: 0
-  },
-  {
-    x: 8,
-    y: 3,
-    z: 6
-  }
-);
-
-
-addBox(
-  "Upper Volume",
-  "Building",
-  {
-    x: 0.8,
-    y: 3.7,
-    z: -0.2
-  },
-  {
-    x: 5.4,
-    y: 1.4,
-    z: 4.2
-  }
-);
-
-
-/* =========================================================
-   RAYCASTER
-   ========================================================= */
-
-const raycaster =
-  new THREE.Raycaster();
-
-const pointer =
-  new THREE.Vector2();
-
-const groundPlane =
-  new THREE.Plane(
-    new THREE.Vector3(0, 1, 0),
-    0
-  );
-
-
-function groundPoint(event) {
-
-  const rect =
-    renderer.domElement
-      .getBoundingClientRect();
-
-  pointer.x =
-    ((event.clientX - rect.left) /
-      rect.width) * 2 - 1;
-
-  pointer.y =
-    -((event.clientY - rect.top) /
-      rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(
-    pointer,
-    camera
-  );
-
-  const point =
-    new THREE.Vector3();
-
-  if (
-    !raycaster.ray.intersectPlane(
-      groundPlane,
-      point
-    )
-  ) {
-
-    return null;
-
-  }
-
-  /* GRID SNAP */
-
-  point.x =
-    Math.round(point.x * 2) / 2;
-
-  point.z =
-    Math.round(point.z * 2) / 2;
-
-  point.y = 0;
-
-  return point;
-
-}
-
-
-/* =========================================================
-   WALL
-   ========================================================= */
-
-function createWall(start, end) {
-
-  const dx =
-    end.x - start.x;
-
-  const dz =
-    end.z - start.z;
-
-  const length =
-    Math.hypot(dx, dz);
-
-  if (length < 0.25) return;
-
-  saveHistory();
-
-  const height = 3;
-
-  const thickness = 0.2;
-
-  const wall = new THREE.Mesh(
-
-    new THREE.BoxGeometry(
-      length,
-      height,
-      thickness
-    ),
-
-    new THREE.MeshStandardMaterial({
-
-      color: 0x8f9aa6,
-
-      roughness: 0.7
-
-    })
-
-  );
-
-  wall.position.set(
-
-    (start.x + end.x) / 2,
-
-    height / 2,
-
-    (start.z + end.z) / 2
-
-  );
-
-  wall.rotation.y =
-    -Math.atan2(dz, dx);
-
-  wall.name =
-    "Wall " + wallNumber++;
-
-  wall.castShadow = true;
-  wall.receiveShadow = true;
-
-  wall.userData = {
-
-    type: "Wall",
-
-    size: {
-
-      x: length,
-
-      y: height,
-
-      z: thickness
-
-    },
-
-    material: "Concrete",
-
-    thickness
-
-  };
-
-  scene.add(wall);
-
-  objects.push(wall);
-
-  selectObject(wall);
-
-}
-
-
-/* =========================================================
-   WALL PREVIEW
-   ========================================================= */
-
-function updateWallPreview(
-  start,
-  end
-) {
-
-  if (!previewWall) return;
-
-  const dx =
-    end.x - start.x;
-
-  const dz =
-    end.z - start.z;
-
-  const length =
-    Math.max(
-      Math.hypot(dx, dz),
-      0.01
-    );
-
-  previewWall.scale.x =
-    length;
-
-  previewWall.position.set(
-
-    (start.x + end.x) / 2,
-
-    0.03,
-
-    (start.z + end.z) / 2
-
-  );
-
-  previewWall.rotation.y =
-    -Math.atan2(dz, dx);
-
-}
-
-
-/* =========================================================
-   TOOL SYSTEM
-   ========================================================= */
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
 
 function setTool(tool) {
 
-  currentTool = tool;
+  cancelTemporaryTool();
+
+  currentTool =
+    tool;
+
 
   document
-    .querySelectorAll(".tool")
-    .forEach(button => {
+    .querySelectorAll(
+      ".tool"
+    )
+    .forEach(
+      button => {
 
-      button.classList.remove(
-        "active",
-        "wallactive"
-      );
+        button.classList.remove(
+          "active",
+          "wallactive"
+        );
 
-    });
+      }
+    );
+
 
   const button =
     document.querySelector(
       `[data-tool="${tool}"]`
     );
+
 
   if (button) {
 
@@ -743,71 +1130,41 @@ function setTool(tool) {
   }
 
 
-  if (tool === "wall") {
-
-    const hint = $("hint");
-
-    if (hint) {
-
-      hint.textContent =
-        "🧱 Стена: нажмите первую точку, затем вторую. Shift — ровная стена.";
-
-      hint.classList.add("show");
-
-    }
-
-  } else {
-
-    cancelWall();
-
-  }
-
-}
+  const hint =
+    $("hint");
 
 
-document
-  .querySelectorAll("[data-tool]")
-  .forEach(button => {
+  if (!hint)
+    return;
 
-    button.addEventListener(
-      "click",
-      () => {
 
-        setTool(
-          button.dataset.tool
-        );
+  if (
+    tool === "wall"
+  ) {
 
-        playSound();
+    hint.textContent =
+      "СТЕНА • первая точка → вторая точка • Shift = 90°";
 
-      }
+    hint.classList.add(
+      "show"
     );
 
-  });
+  }
 
+  else if (
+    tool === "measure"
+  ) {
 
-/* =========================================================
-   CANCEL WALL
-   ========================================================= */
+    hint.textContent =
+      "ИЗМЕРЕНИЕ • выберите две точки";
 
-function cancelWall() {
-
-  wallStart = null;
-
-  if (previewWall) {
-
-    scene.remove(previewWall);
-
-    previewWall.geometry.dispose();
-
-    previewWall.material.dispose();
-
-    previewWall = null;
+    hint.classList.add(
+      "show"
+    );
 
   }
 
-  const hint = $("hint");
-
-  if (hint) {
+  else {
 
     hint.classList.remove(
       "show"
@@ -818,29 +1175,442 @@ function cancelWall() {
 }
 
 
-/* =========================================================
-   3D CLICK
-   ========================================================= */
+document
+  .querySelectorAll(
+    "[data-tool]"
+  )
+  .forEach(
+    button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          setTool(
+            button.dataset.tool
+          );
+
+          playSound();
+
+        }
+      );
+
+    }
+  );
+
+
+/* ============================================================
+   TEMPORARY TOOL CLEANUP
+   ============================================================ */
+
+function cancelTemporaryTool() {
+
+  wallStart = null;
+
+  if (previewWall) {
+
+    scene.remove(
+      previewWall
+    );
+
+    previewWall.geometry.dispose();
+
+    previewWall.material.dispose();
+
+    previewWall = null;
+
+  }
+
+
+  measureStart = null;
+
+  if (measureLine) {
+
+    scene.remove(
+      measureLine
+    );
+
+    measureLine.geometry.dispose();
+
+    measureLine.material.dispose();
+
+    measureLine = null;
+
+  }
+
+
+  if (measureLabel) {
+
+    measureLabel.remove();
+
+    measureLabel = null;
+
+  }
+
+}
+
+
+/* ============================================================
+   WALL CREATION
+   ============================================================ */
+
+function createWall(
+  start,
+  end
+) {
+
+  const dx =
+    end.x - start.x;
+
+  const dz =
+    end.z - start.z;
+
+  const length =
+    Math.hypot(
+      dx,
+      dz
+    );
+
+
+  if (
+    length < 0.25
+  ) {
+
+    return null;
+
+  }
+
+
+  saveHistory();
+
+
+  const height = 3;
+
+  const thickness =
+    0.2;
+
+
+  const wall =
+    new THREE.Mesh(
+
+      new THREE.BoxGeometry(
+        length,
+        height,
+        thickness
+      ),
+
+      new THREE.MeshStandardMaterial({
+
+        color:
+          materialColor(
+            "Concrete"
+          ),
+
+        roughness:
+          0.7
+
+      })
+
+    );
+
+
+  wall.position.set(
+
+    (start.x + end.x) / 2,
+
+    height / 2,
+
+    (start.z + end.z) / 2
+
+  );
+
+
+  wall.rotation.y =
+    -Math.atan2(
+      dz,
+      dx
+    );
+
+
+  wall.name =
+    `Wall ${wallCounter++}`;
+
+
+  addObject(
+
+    wall,
+
+    "Wall",
+
+    {
+      x: length,
+      y: height,
+      z: thickness
+    }
+
+  );
+
+
+  wall.userData.thickness =
+    thickness;
+
+
+  selectObject(
+    wall
+  );
+
+
+  playSound();
+
+
+  return wall;
+
+}
+
+
+/* ============================================================
+   WALL PREVIEW
+   ============================================================ */
+
+function updateWallPreview(
+  start,
+  end
+) {
+
+  if (!previewWall)
+    return;
+
+
+  const dx =
+    end.x - start.x;
+
+  const dz =
+    end.z - start.z;
+
+  const length =
+    Math.max(
+      Math.hypot(
+        dx,
+        dz
+      ),
+      0.01
+    );
+
+
+  previewWall.scale.x =
+    length;
+
+
+  previewWall.position.set(
+
+    (start.x + end.x) / 2,
+
+    0.03,
+
+    (start.z + end.z) / 2
+
+  );
+
+
+  previewWall.rotation.y =
+    -Math.atan2(
+      dz,
+      dx
+    );
+
+}
+
+
+/* ============================================================
+   BOX TOOL
+   ============================================================ */
+
+function createBoxTool(
+  point
+) {
+
+  saveHistory();
+
+
+  const box =
+    createBox(
+
+      new THREE.Vector3(
+        point.x,
+        1,
+        point.z
+      ),
+
+      {
+        x: 2,
+        y: 2,
+        z: 2
+      },
+
+      `Box ${objectCounter++}`
+
+    );
+
+
+  selectObject(
+    box
+  );
+
+
+  playSound();
+
+}
+
+
+/* ============================================================
+   RECTANGLE TOOL
+   ============================================================ */
+
+function createRectangle(
+  point
+) {
+
+  saveHistory();
+
+
+  const rectangle =
+    createBox(
+
+      new THREE.Vector3(
+        point.x,
+        0.5,
+        point.z
+      ),
+
+      {
+        x: 4,
+        y: 1,
+        z: 2
+      },
+
+      `Rectangle ${objectCounter++}`
+
+    );
+
+
+  selectObject(
+    rectangle
+  );
+
+
+  playSound();
+
+}
+
+
+/* ============================================================
+   CYLINDER TOOL
+   ============================================================ */
+
+function createCylinder(
+  point
+) {
+
+  saveHistory();
+
+
+  const geometry =
+    new THREE.CylinderGeometry(
+      1,
+      1,
+      2,
+      32
+    );
+
+
+  const cylinder =
+    new THREE.Mesh(
+
+      geometry,
+
+      new THREE.MeshStandardMaterial({
+
+        color:
+          materialColor(
+            "Concrete"
+          ),
+
+        roughness:
+          0.65
+
+      })
+
+    );
+
+
+  cylinder.position.set(
+    point.x,
+    1,
+    point.z
+  );
+
+
+  cylinder.name =
+    `Cylinder ${objectCounter++}`;
+
+
+  addObject(
+
+    cylinder,
+
+    "Cylinder",
+
+    {
+      x: 2,
+      y: 2,
+      z: 2
+    }
+
+  );
+
+
+  selectObject(
+    cylinder
+  );
+
+
+  playSound();
+
+}
+
+
+/* ============================================================
+   MOUSE / TOUCH DOWN
+   ============================================================ */
 
 renderer.domElement.addEventListener(
   "pointerdown",
   event => {
 
-    /* WALL */
+    const point =
+      groundPoint(
+        event
+      );
+
+
+    if (!point)
+      return;
+
+
+    /* ==========================================
+       WALL
+       ========================================== */
 
     if (
-      currentTool === "wall"
+      currentTool ===
+      "wall"
     ) {
-
-      const point =
-        groundPoint(event);
-
-      if (!point) return;
-
 
       if (!wallStart) {
 
-        wallStart = point;
+        wallStart =
+          point;
+
 
         previewWall =
           new THREE.Mesh(
@@ -852,56 +1622,46 @@ renderer.domElement.addEventListener(
             ),
 
             new THREE.MeshBasicMaterial({
-              color: 0x77d995
+
+              color:
+                0x77d995
+
             })
 
           );
 
+
         previewWall.position.set(
+
           point.x,
+
           0.03,
+
           point.z
+
         );
+
 
         scene.add(
           previewWall
         );
 
-      } else {
 
-        let end = point;
+      }
 
+      else {
 
-        /* SHIFT = STRAIGHT */
-
-        if (event.shiftKey) {
-
-          const dx =
-            Math.abs(
-              end.x - wallStart.x
-            );
-
-          const dz =
-            Math.abs(
-              end.z - wallStart.z
-            );
-
-          if (dx >= dz) {
-
-            end.z =
-              wallStart.z;
-
-          } else {
-
-            end.x =
-              wallStart.x;
-
-          }
-
-        }
+        const end =
+          snapDirection(
+            wallStart,
+            point,
+            event.shiftKey
+          );
 
 
-        if (previewWall) {
+        if (
+          previewWall
+        ) {
 
           scene.remove(
             previewWall
@@ -921,19 +1681,96 @@ renderer.domElement.addEventListener(
           end
         );
 
+
         wallStart = null;
 
       }
+
 
       return;
 
     }
 
 
-    /* SELECT */
+    /* ==========================================
+       BOX
+       ========================================== */
 
     if (
-      currentTool !== "select"
+      currentTool ===
+      "box"
+    ) {
+
+      createBoxTool(
+        point
+      );
+
+      return;
+
+    }
+
+
+    /* ==========================================
+       RECTANGLE
+       ========================================== */
+
+    if (
+      currentTool ===
+      "rectangle"
+    ) {
+
+      createRectangle(
+        point
+      );
+
+      return;
+
+    }
+
+
+    /* ==========================================
+       CYLINDER
+       ========================================== */
+
+    if (
+      currentTool ===
+      "cylinder"
+    ) {
+
+      createCylinder(
+        point
+      );
+
+      return;
+
+    }
+
+
+    /* ==========================================
+       MEASURE
+       ========================================== */
+
+    if (
+      currentTool ===
+      "measure"
+    ) {
+
+      handleMeasure(
+        point
+      );
+
+      return;
+
+    }
+
+
+    /* ==========================================
+       SELECT
+       ========================================== */
+
+    if (
+      currentTool !==
+      "select"
     ) {
 
       return;
@@ -941,17 +1778,9 @@ renderer.domElement.addEventListener(
     }
 
 
-    const rect =
-      renderer.domElement
-        .getBoundingClientRect();
-
-    pointer.x =
-      ((event.clientX - rect.left) /
-        rect.width) * 2 - 1;
-
-    pointer.y =
-      -((event.clientY - rect.top) /
-        rect.height) * 2 + 1;
+    screenPointer(
+      event
+    );
 
 
     raycaster.setFromCamera(
@@ -977,64 +1806,50 @@ renderer.domElement.addEventListener(
 );
 
 
-/* =========================================================
+/* ============================================================
    POINTER MOVE
-   ========================================================= */
+   ============================================================ */
 
 renderer.domElement.addEventListener(
   "pointermove",
   event => {
 
     const point =
-      groundPoint(event);
+      groundPoint(
+        event
+      );
 
-    if (!point) return;
+
+    if (!point)
+      return;
 
 
-    $("cx").textContent =
-      point.x.toFixed(2);
+    if ($("cx"))
+      $("cx").textContent =
+        point.x.toFixed(2);
 
-    $("cy").textContent =
-      point.y.toFixed(2);
+    if ($("cy"))
+      $("cy").textContent =
+        point.y.toFixed(2);
 
-    $("cz").textContent =
-      point.z.toFixed(2);
+    if ($("cz"))
+      $("cz").textContent =
+        point.z.toFixed(2);
 
 
     if (
-      currentTool === "wall" &&
+      currentTool ===
+      "wall" &&
       wallStart &&
       previewWall
     ) {
 
-      let end = point;
-
-
-      if (event.shiftKey) {
-
-        const dx =
-          Math.abs(
-            end.x - wallStart.x
-          );
-
-        const dz =
-          Math.abs(
-            end.z - wallStart.z
-          );
-
-        if (dx >= dz) {
-
-          end.z =
-            wallStart.z;
-
-        } else {
-
-          end.x =
-            wallStart.x;
-
-        }
-
-      }
+      const end =
+        snapDirection(
+          wallStart,
+          point,
+          event.shiftKey
+        );
 
 
       updateWallPreview(
@@ -1048,158 +1863,173 @@ renderer.domElement.addEventListener(
 );
 
 
-/* =========================================================
-   SELECTION
-   ========================================================= */
+/* ============================================================
+   MEASUREMENT
+   ============================================================ */
 
-function selectObject(object) {
+function handleMeasure(
+  point
+) {
 
-  if (
-    selected &&
-    selected.material &&
-    selected.userData
-      .originalColor !== undefined
-  ) {
+  if (!measureStart) {
 
-    selected.material.color.setHex(
-      selected.userData.originalColor
-    );
-
-  }
+    measureStart =
+      point.clone();
 
 
-  selected = object;
+    if (measureLine) {
 
-
-  if (selected) {
-
-    if (
-      selected.material &&
-      selected.material.color
-    ) {
-
-      if (
-        selected.userData
-          .originalColor === undefined
-      ) {
-
-        selected.userData
-          .originalColor =
-          selected.material.color.getHex();
-
-      }
-
-      selected.material.color
-        .offsetHSL(
-          0,
-          0,
-          0.12
-        );
+      scene.remove(
+        measureLine
+      );
 
     }
 
+
+    measureLine =
+      new THREE.Line(
+
+        new THREE.BufferGeometry()
+          .setFromPoints([
+            measureStart,
+            measureStart
+          ]),
+
+        new THREE.LineBasicMaterial({
+          color:
+            0x77d995
+        })
+
+      );
+
+
+    scene.add(
+      measureLine
+    );
+
+
+    return;
+
   }
 
 
-  updateProperties();
+  const end =
+    point.clone();
+
+
+  const distance =
+    measureStart.distanceTo(
+      end
+    );
+
+
+  const geometry =
+    new THREE.BufferGeometry()
+      .setFromPoints([
+        measureStart,
+        end
+      ]);
+
+
+  measureLine.geometry.dispose();
+
+  measureLine.geometry =
+    geometry;
+
+
+  showMeasureLabel(
+    end,
+    distance
+  );
+
+
+  measureStart = null;
+
+
+  playSound();
 
 }
 
 
-/* =========================================================
-   PROPERTIES
-   ========================================================= */
+function showMeasureLabel(
+  position,
+  distance
+) {
 
-function updateProperties() {
+  if (measureLabel) {
 
-  const hasObject =
-    !!selected;
-
-  $("empty").hidden =
-    hasObject;
-
-  $("content").hidden =
-    !hasObject;
-
-
-  if (!selected) return;
-
-
-  $("oname").textContent =
-    selected.name;
-
-  $("otype").textContent =
-    selected.userData.type ||
-    "Element";
-
-
-  const position =
-    selected.position;
-
-
-  $("px").value =
-    position.x.toFixed(2);
-
-  $("py").value =
-    position.y.toFixed(2);
-
-  $("pz").value =
-    position.z.toFixed(2);
-
-
-  $("sx").value =
-    selected.userData.size.x.toFixed(2);
-
-  $("sy").value =
-    selected.userData.size.y.toFixed(2);
-
-  $("sz").value =
-    selected.userData.size.z.toFixed(2);
-
-
-  $("wallprops").hidden =
-    selected.userData.type !== "Wall";
-
-
-  $("imageprops").hidden =
-    selected.userData.type !==
-    "ImageReference";
-
-
-  $("mat").value =
-    selected.userData.material ||
-    "Concrete";
-
-
-  if (
-    selected.userData.type ===
-    "Wall"
-  ) {
-
-    $("thick").value =
-      selected.userData.thickness ||
-      0.2;
+    measureLabel.remove();
 
   }
 
 
-  if (
-    selected.userData.type ===
-    "ImageReference"
-  ) {
+  measureLabel =
+    document.createElement(
+      "div"
+    );
 
-    $("opacity").value =
-      selected.userData.opacity ??
-      1;
 
-  }
+  measureLabel.style.position =
+    "fixed";
+
+  measureLabel.style.zIndex =
+    "100";
+
+  measureLabel.style.padding =
+    "6px 10px";
+
+  measureLabel.style.background =
+    "#111820";
+
+  measureLabel.style.border =
+    "1px solid #4e6274";
+
+  measureLabel.style.borderRadius =
+    "6px";
+
+  measureLabel.style.color =
+    "#dce7ef";
+
+  measureLabel.style.fontSize =
+    "12px";
+
+  measureLabel.style.pointerEvents =
+    "none";
+
+
+  measureLabel.textContent =
+    `📏 ${distance.toFixed(2)} m`;
+
+
+  document.body.appendChild(
+    measureLabel
+  );
+
+
+  const vector =
+    position.clone()
+      .project(camera);
+
+
+  measureLabel.style.left =
+    (
+      (vector.x + 1) / 2 *
+      window.innerWidth
+    ) + "px";
+
+
+  measureLabel.style.top =
+    (
+      (-vector.y + 1) / 2 *
+      window.innerHeight
+    ) + "px";
 
 }
 
 
-/* =========================================================
-   IMAGE UPLOAD
-   ========================================================= */
+/* ============================================================
+   IMAGE IMPORT
+   ============================================================ */
 
 $("imageBtn")?.addEventListener(
   "click",
@@ -1220,173 +2050,193 @@ $("imageFile")?.addEventListener(
     const file =
       event.target.files[0];
 
-    if (!file) return;
+
+    if (!file)
+      return;
 
 
     const url =
-      URL.createObjectURL(file);
+      URL.createObjectURL(
+        file
+      );
+
 
     const image =
       new Image();
 
 
-    image.onload = () => {
+    image.onload =
+      () => {
 
-      saveHistory();
-
-
-      const ratio =
-        image.width /
-        image.height;
+        saveHistory();
 
 
-      const maxSize = 8;
+        const ratio =
+          image.width /
+          image.height;
 
 
-      let width;
-      let height;
+        const max =
+          8;
 
 
-      if (ratio >= 1) {
-
-        width = maxSize;
-
-        height =
-          maxSize / ratio;
-
-      } else {
-
-        height = maxSize;
-
-        width =
-          maxSize * ratio;
-
-      }
+        let width;
+        let height;
 
 
-      const texture =
-        new THREE.Texture(
-          image
+        if (
+          ratio >= 1
+        ) {
+
+          width =
+            max;
+
+          height =
+            max /
+            ratio;
+
+        }
+
+        else {
+
+          height =
+            max;
+
+          width =
+            max *
+            ratio;
+
+        }
+
+
+        const texture =
+          new THREE.Texture(
+            image
+          );
+
+
+        texture.colorSpace =
+          THREE.SRGBColorSpace;
+
+
+        texture.needsUpdate =
+          true;
+
+
+        const material =
+          new THREE.MeshBasicMaterial({
+
+            map:
+              texture,
+
+            transparent:
+              true,
+
+            opacity:
+              0.8,
+
+            side:
+              THREE.DoubleSide
+
+          });
+
+
+        const plane =
+          new THREE.Mesh(
+
+            new THREE.PlaneGeometry(
+              width,
+              height
+            ),
+
+            material
+
+          );
+
+
+        plane.rotation.x =
+          -Math.PI / 2;
+
+
+        plane.position.set(
+          0,
+          0.02,
+          0
         );
 
-      texture.colorSpace =
-        THREE.SRGBColorSpace;
 
-      texture.needsUpdate =
-        true;
+        plane.name =
+          "Reference Image";
 
 
-      const material =
-        new THREE.MeshBasicMaterial({
+        plane.userData = {
 
-          map: texture,
+          type:
+            "ImageReference",
 
-          transparent: true,
+          size: {
 
-          opacity: 1,
+            x: width,
 
-          side:
-            THREE.DoubleSide
+            y: height,
 
-        });
+            z: 0
+
+          },
+
+          material:
+            "Image",
+
+          opacity:
+            0.8,
+
+          filename:
+            file.name
+
+        };
 
 
-      const imagePlane =
-        new THREE.Mesh(
-
-          new THREE.PlaneGeometry(
-            width,
-            height
-          ),
-
-          material
-
+        scene.add(
+          plane
         );
 
 
-      /*
-       * Изображение лежит
-       * на полу 3D-сцены.
-       */
-
-      imagePlane.rotation.x =
-        -Math.PI / 2;
+        objects.push(
+          plane
+        );
 
 
-      imagePlane.position.set(
-        0,
-        0.02,
-        0
-      );
+        selectObject(
+          plane
+        );
 
 
-      imagePlane.name =
-        "Reference Image";
-
-
-      imagePlane.userData = {
-
-        type:
-          "ImageReference",
-
-        size: {
-
-          x: width,
-
-          y: height,
-
-          z: 0
-
-        },
-
-        material:
-          "Image",
-
-        opacity: 1,
-
-        originalFile:
-          file.name
+        URL.revokeObjectURL(
+          url
+        );
 
       };
 
 
-      scene.add(
-        imagePlane
-      );
-
-      objects.push(
-        imagePlane
-      );
+    image.src =
+      url;
 
 
-      selectObject(
-        imagePlane
-      );
-
-
-      URL.revokeObjectURL(
-        url
-      );
-
-    };
-
-
-    image.src = url;
-
-
-    event.target.value = "";
+    event.target.value =
+      "";
 
   }
 );
 
 
-/* =========================================================
+/* ============================================================
    DELETE
-   ========================================================= */
+   ============================================================ */
 
 function deleteSelected() {
 
-  if (!selected) return;
+  if (!selected)
+    return;
 
 
   saveHistory();
@@ -1403,7 +2253,9 @@ function deleteSelected() {
     );
 
 
-  if (index >= 0) {
+  if (
+    index !== -1
+  ) {
 
     objects.splice(
       index,
@@ -1414,6 +2266,7 @@ function deleteSelected() {
 
 
   selected = null;
+
 
   updateProperties();
 
@@ -1434,15 +2287,17 @@ $("del")?.addEventListener(
 );
 
 
-/* =========================================================
-   CLOSE PROPERTY PANEL
-   ========================================================= */
+/* ============================================================
+   CLOSE
+   ============================================================ */
 
 $("close")?.addEventListener(
   "click",
   () => {
 
-    selectObject(null);
+    selectObject(
+      null
+    );
 
     playSound();
 
@@ -1450,9 +2305,9 @@ $("close")?.addEventListener(
 );
 
 
-/* =========================================================
+/* ============================================================
    HOME
-   ========================================================= */
+   ============================================================ */
 
 $("home")?.addEventListener(
   "click",
@@ -1478,9 +2333,9 @@ $("home")?.addEventListener(
 );
 
 
-/* =========================================================
-   TOP VIEW
-   ========================================================= */
+/* ============================================================
+   TOP
+   ============================================================ */
 
 $("top")?.addEventListener(
   "click",
@@ -1506,9 +2361,9 @@ $("top")?.addEventListener(
 );
 
 
-/* =========================================================
+/* ============================================================
    NEW PROJECT
-   ========================================================= */
+   ============================================================ */
 
 $("new")?.addEventListener(
   "click",
@@ -1516,12 +2371,12 @@ $("new")?.addEventListener(
 
     playSound();
 
-    const answer =
+
+    if (
       confirm(
         "Создать новый проект?"
-      );
-
-    if (answer) {
+      )
+    ) {
 
       location.reload();
 
@@ -1531,16 +2386,16 @@ $("new")?.addEventListener(
 );
 
 
-/* =========================================================
-   SAVE PROJECT
-   ========================================================= */
+/* ============================================================
+   SAVE
+   ============================================================ */
 
 $("save")?.addEventListener(
   "click",
   () => {
 
     const data =
-      getSceneData();
+      serializeScene();
 
 
     const blob =
@@ -1564,22 +2419,28 @@ $("save")?.addEventListener(
         "a"
       );
 
+
     link.href =
       URL.createObjectURL(
         blob
       );
 
+
     link.download =
       "archiforge-project.json";
+
 
     link.click();
 
 
     setTimeout(
-      () =>
+      () => {
+
         URL.revokeObjectURL(
           link.href
-        ),
+        );
+
+      },
       1000
     );
 
@@ -1590,9 +2451,9 @@ $("save")?.addEventListener(
 );
 
 
-/* =========================================================
+/* ============================================================
    PNG
-   ========================================================= */
+   ============================================================ */
 
 $("png")?.addEventListener(
   "click",
@@ -1623,130 +2484,154 @@ $("png")?.addEventListener(
 
     link.click();
 
+
     playSound();
 
   }
 );
 
 
-/* =========================================================
-   POSITION EDITING
-   ========================================================= */
+/* ============================================================
+   POSITION INPUTS
+   ============================================================ */
 
-["px", "py", "pz"]
-  .forEach(
-    (id, index) => {
-
-      $(id)?.addEventListener(
-        "change",
-        () => {
-
-          if (!selected)
-            return;
+const positionInputs = [
+  "px",
+  "py",
+  "pz"
+];
 
 
-          saveHistory();
+positionInputs.forEach(
+  (id, index) => {
+
+    $(id)?.addEventListener(
+      "change",
+      () => {
+
+        if (!selected)
+          return;
 
 
-          const value =
+        saveHistory();
+
+
+        const value =
+          Number(
+            $(id).value
+          ) || 0;
+
+
+        selected.position
+          .setComponent(
+            index,
+            value
+          );
+
+
+        updateProperties();
+
+      }
+    );
+
+  }
+);
+
+
+/* ============================================================
+   SIZE INPUTS
+   ============================================================ */
+
+const sizeInputs = [
+  "sx",
+  "sy",
+  "sz"
+];
+
+
+sizeInputs.forEach(
+  (id, index) => {
+
+    $(id)?.addEventListener(
+      "change",
+      () => {
+
+        if (!selected)
+          return;
+
+
+        if (
+          selected.userData
+            .type ===
+          "ImageReference"
+        ) {
+
+          return;
+
+        }
+
+
+        saveHistory();
+
+
+        const keys =
+          ["x", "y", "z"];
+
+
+        const key =
+          keys[index];
+
+
+        const value =
+          Math.max(
+            0.05,
             Number(
               $(id).value
-            ) || 0;
+            ) || 0.05
+          );
 
 
-          selected.position
-            .setComponent(
-              index,
-              value
-            );
-
-
-          updateProperties();
-
-        }
-      );
-
-    }
-  );
-
-
-/* =========================================================
-   SIZE EDITING
-   ========================================================= */
-
-["sx", "sy", "sz"]
-  .forEach(
-    (id, index) => {
-
-      $(id)?.addEventListener(
-        "change",
-        () => {
-
-          if (
-            !selected ||
-            selected.userData
-              .type ===
-              "ImageReference"
-          ) {
-
-            return;
-
-          }
-
-
-          saveHistory();
-
-
-          const keys =
-            ["x", "y", "z"];
-
-          const key =
-            keys[index];
-
-
-          const value =
-            Math.max(
-              0.05,
-              Number(
-                $(id).value
-              ) || 0.05
-            );
-
-
-          const old =
-            selected.userData
-              .size[key];
-
-
-          selected.scale
-            .setComponent(
-              index,
-              selected.scale
-                .getComponent(
-                  index
-                ) *
-                value /
-                old
-            );
-
-
+        const old =
           selected.userData
-            .size[key] =
-            value;
+            .size[key];
 
 
-          updateProperties();
-
-        }
-      );
-
-    }
-  );
+        const scale =
+          selected.scale
+            .getComponent(
+              index
+            );
 
 
-/* =========================================================
+        selected.scale
+          .setComponent(
+
+            index,
+
+            scale *
+            value /
+            old
+
+          );
+
+
+        selected.userData
+          .size[key] =
+          value;
+
+
+        updateProperties();
+
+      }
+    );
+
+  }
+);
+
+
+/* ============================================================
    WALL THICKNESS
-   ========================================================= */
+   ============================================================ */
 
 $("thick")?.addEventListener(
   "change",
@@ -1755,7 +2640,7 @@ $("thick")?.addEventListener(
     if (
       !selected ||
       selected.userData.type !==
-        "Wall"
+      "Wall"
     ) {
 
       return;
@@ -1777,11 +2662,13 @@ $("thick")?.addEventListener(
 
     const old =
       selected.userData
-        .thickness;
+        .thickness ||
+      0.2;
 
 
     selected.scale.z *=
-      value / old;
+      value /
+      old;
 
 
     selected.userData
@@ -1800,9 +2687,9 @@ $("thick")?.addEventListener(
 );
 
 
-/* =========================================================
-   IMAGE OPACITY
-   ========================================================= */
+/* ============================================================
+   OPACITY
+   ============================================================ */
 
 $("opacity")?.addEventListener(
   "input",
@@ -1811,7 +2698,7 @@ $("opacity")?.addEventListener(
     if (
       !selected ||
       selected.userData.type !==
-        "ImageReference"
+      "ImageReference"
     ) {
 
       return;
@@ -1825,12 +2712,11 @@ $("opacity")?.addEventListener(
       );
 
 
-    selected.userData
-      .opacity =
+    selected.material.opacity =
       value;
 
 
-    selected.material
+    selected.userData
       .opacity =
       value;
 
@@ -1838,15 +2724,16 @@ $("opacity")?.addEventListener(
 );
 
 
-/* =========================================================
+/* ============================================================
    MATERIAL
-   ========================================================= */
+   ============================================================ */
 
 $("mat")?.addEventListener(
   "change",
   () => {
 
-    if (!selected) return;
+    if (!selected)
+      return;
 
 
     if (
@@ -1871,12 +2758,18 @@ $("mat")?.addEventListener(
       material;
 
 
-    selected.material
-      .color.setHex(
+    if (
+      selected.material &&
+      selected.material.color
+    ) {
+
+      selected.material.color.setHex(
         materialColor(
           material
         )
       );
+
+    }
 
 
     updateProperties();
@@ -1885,9 +2778,9 @@ $("mat")?.addEventListener(
 );
 
 
-/* =========================================================
+/* ============================================================
    KEYBOARD SHORTCUTS
-   ========================================================= */
+   ============================================================ */
 
 document.addEventListener(
   "keydown",
@@ -1900,7 +2793,7 @@ document.addEventListener(
       "Escape"
     ) {
 
-      cancelWall();
+      cancelTemporaryTool();
 
       setTool(
         "select"
@@ -1927,39 +2820,47 @@ document.addEventListener(
     }
 
 
-    /* CTRL / CMD + Z */
+    /* CTRL/CMD + Z */
 
     if (
-      (event.ctrlKey ||
-       event.metaKey) &&
-      event.key.toLowerCase() ===
-        "z"
+      (
+        event.ctrlKey ||
+        event.metaKey
+      ) &&
+      event.key.toLowerCase()
+      === "z"
     ) {
 
       event.preventDefault();
+
 
       if (event.shiftKey) {
 
         redo();
 
-      } else {
+      }
+
+      else {
 
         undo();
 
       }
+
 
       return;
 
     }
 
 
-    /* CTRL / CMD + Y */
+    /* CTRL/CMD + Y */
 
     if (
-      (event.ctrlKey ||
-       event.metaKey) &&
-      event.key.toLowerCase() ===
-        "y"
+      (
+        event.ctrlKey ||
+        event.metaKey
+      ) &&
+      event.key.toLowerCase()
+      === "y"
     ) {
 
       event.preventDefault();
@@ -1972,30 +2873,31 @@ document.addEventListener(
 );
 
 
-/* =========================================================
-   BUTTON SOUND
-   ========================================================= */
+/* ============================================================
+   SOUND
+   ============================================================ */
 
-let audioContext = null;
+let audioContext =
+  null;
 
 
 function playSound() {
 
   try {
 
-    const AudioCtx =
+    const AudioContext =
       window.AudioContext ||
       window.webkitAudioContext;
 
 
-    if (!AudioCtx)
+    if (!AudioContext)
       return;
 
 
     if (!audioContext) {
 
       audioContext =
-        new AudioCtx();
+        new AudioContext();
 
     }
 
@@ -2059,13 +2961,14 @@ function playSound() {
     gain.gain
       .exponentialRampToValueAtTime(
         0.0001,
-        now + 0.07
+        now + 0.075
       );
 
 
     oscillator.connect(
       gain
     );
+
 
     gain.connect(
       audioContext.destination
@@ -2076,11 +2979,16 @@ function playSound() {
       now
     );
 
+
     oscillator.stop(
       now + 0.08
     );
 
-  } catch (error) {
+  }
+
+  catch (
+    error
+  ) {
 
     console.log(
       "Audio unavailable"
@@ -2091,9 +2999,9 @@ function playSound() {
 }
 
 
-/* =========================================================
+/* ============================================================
    RESIZE
-   ========================================================= */
+   ============================================================ */
 
 function resize() {
 
@@ -2105,8 +3013,8 @@ function resize() {
 
 
   if (
-    !width ||
-    !height
+    width <= 0 ||
+    height <= 0
   ) {
 
     return;
@@ -2136,9 +3044,9 @@ window.addEventListener(
 );
 
 
-/* =========================================================
+/* ============================================================
    START
-   ========================================================= */
+   ============================================================ */
 
 resize();
 
@@ -2146,6 +3054,14 @@ updateProperties();
 
 updateHistoryButtons();
 
+setTool(
+  "select"
+);
+
+
+/* ============================================================
+   RENDER LOOP
+   ============================================================ */
 
 function animate() {
 
@@ -2153,7 +3069,58 @@ function animate() {
     animate
   );
 
+
   controls.update();
+
+
+  /* Update measurement label */
+
+  if (
+    measureLabel &&
+    measureLine
+  ) {
+
+    const position =
+      measureLine.geometry
+        .attributes
+        .position;
+
+
+    const x =
+      position.getX(1);
+
+    const y =
+      position.getY(1);
+
+    const z =
+      position.getZ(1);
+
+
+    const vector =
+      new THREE.Vector3(
+        x,
+        y,
+        z
+      ).project(
+        camera
+      );
+
+
+    measureLabel.style.left =
+      (
+        (vector.x + 1) / 2 *
+        window.innerWidth
+      ) + "px";
+
+
+    measureLabel.style.top =
+      (
+        (-vector.y + 1) / 2 *
+        window.innerHeight
+      ) + "px";
+
+  }
+
 
   renderer.render(
     scene,
