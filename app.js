@@ -1,55 +1,15 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-const viewport=document.getElementById('viewport');
-const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x0c1014);
-const camera=new THREE.PerspectiveCamera(45,1,.1,500);
-camera.position.set(10,9,12);
-const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputColorSpace=THREE.SRGBColorSpace;
-viewport.appendChild(renderer.domElement);
-const controls=new OrbitControls(camera,renderer.domElement);
-controls.enableDamping=true; controls.dampingFactor=.07; controls.target.set(0,.8,0);
-controls.minDistance=2; controls.maxDistance=80; controls.maxPolarAngle=Math.PI/2.02;
-
-scene.add(new THREE.HemisphereLight(0xb9c8d8,0x20252c,2));
-const sun=new THREE.DirectionalLight(0xffffff,2.6);
-sun.position.set(7,14,8); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); scene.add(sun);
-scene.add(new THREE.GridHelper(40,40,0x4b5662,0x252c34));
-const floor=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshStandardMaterial({color:0x11161b,roughness:.88,metalness:.05}));
-floor.rotation.x=-Math.PI/2; floor.position.y=-.015; floor.receiveShadow=true; scene.add(floor);
-
-const objects=[];
-let selected=null,currentTool='select';
-function addBox(name,type,position,size,color=0x8f9aa6){
-  const mesh=new THREE.Mesh(new THREE.BoxGeometry(size.x,size.y,size.z),new THREE.MeshStandardMaterial({color,roughness:.62,metalness:.05}));
-  mesh.name=name; mesh.position.set(position.x,position.y,position.z); mesh.castShadow=true; mesh.receiveShadow=true;
-  mesh.userData={type,size:{...size},material:'Concrete'}; scene.add(mesh); objects.push(mesh); return mesh;
-}
-addBox('Main Volume','Building',{x:0,y:1.5,z:0},{x:8,y:3,z:6},0x7e8994);
-addBox('Upper Volume','Building',{x:.8,y:3.7,z:-.2},{x:5.4,y:1.4,z:4.2},0x9aa3ad);
-addBox('Entrance Canopy','Canopy',{x:0,y:2.8,z:3.7},{x:3.2,y:.22,z:1.3},0x3f4851);
-const glassMat=new THREE.MeshStandardMaterial({color:0x6f8799,transparent:true,opacity:.42,metalness:.15,roughness:.15});
-for(let i=-2;i<=2;i++){const p=new THREE.Mesh(new THREE.BoxGeometry(1.15,1.8,.06),glassMat);p.position.set(i*1.25,1.45,3.03);p.castShadow=true;p.name=`Window ${i+3}`;p.userData={type:'Window',size:{x:1.15,y:1.8,z:.06},material:'Glass'};scene.add(p);objects.push(p);}
-const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
-function resize(){const w=viewport.clientWidth,h=viewport.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)} window.addEventListener('resize',resize);resize();
-function setSelected(obj){if(selected?.userData?.baseColor)selected.material.color.set(selected.userData.baseColor);selected=obj;if(selected){selected.userData.baseColor=selected.material.color.getHex();selected.material.color.offsetHSL(0,0,.16)}updateProperties();}
-renderer.domElement.addEventListener('pointerdown',e=>{if(currentTool!=='select')return;const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(objects,false);setSelected(hits.length?hits[0].object:null)});
-function updateProperties(){const empty=document.getElementById('emptyProperties'),content=document.getElementById('propertiesContent');if(!selected){empty.classList.remove('hidden');content.classList.add('hidden');return}empty.classList.add('hidden');content.classList.remove('hidden');document.getElementById('objectName').textContent=selected.name;document.getElementById('objectType').textContent=selected.userData.type||'Element';['x','y','z'].forEach((k,i)=>document.getElementById('pos'+k.toUpperCase()).value=selected.position[k].toFixed(2));['x','y','z'].forEach((k,i)=>document.getElementById('dim'+k.toUpperCase()).value=selected.userData.size[k].toFixed(2));document.getElementById('material').value=selected.userData.material||'Concrete';updateObjectCount();}
-['X','Y','Z'].forEach((K,i)=>document.getElementById('pos'+K).addEventListener('change',e=>{if(selected)selected.position[['x','y','z'][i]]=Number(e.target.value)||0}));
-['X','Y','Z'].forEach((K,i)=>document.getElementById('dim'+K).addEventListener('change',e=>{if(!selected)return;const k=['x','y','z'][i],v=Math.max(.05,Number(e.target.value)||.05);selected.scale[k]/=1;selected.scale[k]*=v/selected.userData.size[k];selected.userData.size[k]=v}));
-document.getElementById('material').addEventListener('change',e=>{if(!selected)return;selected.userData.material=e.target.value;const c={Concrete:0x8f9aa6,Brick:0x8d6254,Glass:0x6f8799,Wood:0x8c6d4c,Steel:0x68747f};selected.material.color.set(c[e.target.value]||0x8f9aa6)});
-document.getElementById('deleteObject').addEventListener('click',()=>{if(!selected)return;scene.remove(selected);objects.splice(objects.indexOf(selected),1);selected=null;updateProperties();updateObjectCount()});
-document.querySelectorAll('.tool[data-tool]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tool[data-tool]').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentTool=b.dataset.tool}));
-document.getElementById('homeView').addEventListener('click',()=>{camera.position.set(10,9,12);controls.target.set(0,1,0);controls.update()});
-document.getElementById('topView').addEventListener('click',()=>{camera.position.set(0,20,.01);controls.target.set(0,0,0);controls.update()});
-document.getElementById('closeProperties').addEventListener('click',()=>setSelected(null));
-document.getElementById('newProject').addEventListener('click',()=>{if(confirm(t('confirmNew')))location.reload()});
-document.getElementById('saveProject').addEventListener('click',()=>{const data=objects.map(o=>({name:o.name,type:o.userData.type,position:o.position.toArray(),size:o.userData.size,material:o.userData.material}));const blob=new Blob([JSON.stringify({version:'0.1.1',language:window.currentLanguage,objects:data},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='archiforge-project.json';a.click();URL.revokeObjectURL(a.href)});
-document.getElementById('exportImage').addEventListener('click',()=>{renderer.render(scene,camera);const a=document.createElement('a');a.href=renderer.domElement.toDataURL('image/png');a.download='archiforge-view.png';a.click()});
-renderer.domElement.addEventListener('pointermove',e=>{const r=renderer.domElement.getBoundingClientRect(),x=((e.clientX-r.left)/r.width)*2-1,y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera({x,y},camera);const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0),hit=new THREE.Vector3();if(raycaster.ray.intersectPlane(plane,hit)){coordX.textContent=hit.x.toFixed(2);coordY.textContent=hit.y.toFixed(2);coordZ.textContent=hit.z.toFixed(2)}});
-window.updateObjectCount=()=>document.getElementById('objectCount').textContent=`${objects.length} ${t('objects')}`;
-function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)} updateProperties();updateObjectCount();animate();
+import * as THREE from "three";import{OrbitControls}from"three/addons/controls/OrbitControls.js";
+const v=document.getElementById("viewport"),s=new THREE.Scene();s.background=new THREE.Color(0x0c1014);const c=new THREE.PerspectiveCamera(45,1,.1,500);c.position.set(12,10,14);const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setPixelRatio(Math.min(devicePixelRatio,2));r.shadowMap.enabled=true;r.outputColorSpace=THREE.SRGBColorSpace;v.appendChild(r.domElement);const ctl=new OrbitControls(c,r.domElement);ctl.enableDamping=true;ctl.target.set(0,1,0);s.add(new THREE.HemisphereLight(0xc5d3df,0x20252c,2));let sun=new THREE.DirectionalLight(0xffffff,2.6);sun.position.set(7,14,8);sun.castShadow=true;s.add(sun);s.add(new THREE.GridHelper(40,80,0x4b5662,0x252c34));let floor=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshStandardMaterial({color:0x11161b,roughness:.9}));floor.rotation.x=-Math.PI/2;floor.position.y=-.01;floor.receiveShadow=true;s.add(floor);
+const objs=[];let selected=null,tool="select",start=null,temp=null,n=1;const ray=new THREE.Raycaster(),ptr=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+function box(name,type,p,z,col){let m=new THREE.Mesh(new THREE.BoxGeometry(z.x,z.y,z.z),new THREE.MeshStandardMaterial({color:col,roughness:.65}));m.name=name;m.position.set(p.x,p.y,p.z);m.castShadow=m.receiveShadow=true;m.userData={type,size:{...z},material:"Concrete"};s.add(m);objs.push(m);return m}
+box("Main Volume","Building",{x:0,y:1.5,z:0},{x:8,y:3,z:6},0x7e8994);box("Upper Volume","Building",{x:.8,y:3.7,z:-.2},{x:5.4,y:1.4,z:4.2},0x9aa3ad);
+function point(e){let q=r.domElement.getBoundingClientRect();ptr.x=(e.clientX-q.left)/q.width*2-1;ptr.y=-(e.clientY-q.top)/q.height*2+1;ray.setFromCamera(ptr,c);let p=new THREE.Vector3();return ray.ray.intersectPlane(plane,p)?new THREE.Vector3(Math.round(p.x*2)/2,0,Math.round(p.z*2)/2):null}
+function wall(a,b){let dx=b.x-a.x,dz=b.z-a.z,L=Math.hypot(dx,dz);if(L<.25)return;let m=new THREE.Mesh(new THREE.BoxGeometry(L,3,.2),new THREE.MeshStandardMaterial({color:0x8f9aa6,roughness:.7}));m.position.set((a.x+b.x)/2,1.5,(a.z+b.z)/2);m.rotation.y=-Math.atan2(dz,dx);m.name="Wall "+n++;m.castShadow=m.receiveShadow=true;m.userData={type:"Wall",size:{x:L,y:3,z:.2},material:"Concrete",thickness:.2};s.add(m);objs.push(m);select(m)}
+function select(o){if(selected)selected.material.emissive.set(0);selected=o;if(o)o.material.emissive.set(0x202020);update()}
+function update(){empty.hidden=!!selected;content.hidden=!selected;if(!selected)return;oname.textContent=selected.name;otype.textContent=selected.userData.type;px.value=selected.position.x.toFixed(2);py.value=selected.position.y.toFixed(2);pz.value=selected.position.z.toFixed(2);sx.value=selected.userData.size.x.toFixed(2);sy.value=selected.userData.size.y.toFixed(2);sz.value=selected.userData.size.z.toFixed(2);wallprops.hidden=selected.userData.type!=="Wall";if(selected.userData.type==="Wall"){length.textContent=selected.userData.size.x.toFixed(2)+" m";thick.value=selected.userData.thickness}}
+r.domElement.onpointerdown=e=>{if(tool==="wall"){let p=point(e);if(!p)return;if(!start){start=p;temp=new THREE.Mesh(new THREE.BoxGeometry(.01,.06,.06),new THREE.MeshBasicMaterial({color:0x77d995}));s.add(temp)}else{if(temp)s.remove(temp);wall(start,p);start=null;document.querySelector('[data-tool="wall"]').classList.remove("wallactive");document.querySelector('[data-tool="wall"]').classList.add("active");tool="select";wallHint.classList.remove("show")}return}if(tool!=="select")return;let q=r.domElement.getBoundingClientRect();ptr.x=(e.clientX-q.left)/q.width*2-1;ptr.y=-(e.clientY-q.top)/q.height*2+1;ray.setFromCamera(ptr,c);let hits=ray.intersectObjects(objs);select(hits[0]?.object||null)};
+r.domElement.onpointermove=e=>{if(tool==="wall"&&start&&temp){let p=point(e);if(p){let L=Math.hypot(p.x-start.x,p.z-start.z);temp.scale.x=L;temp.position.set((p.x+start.x)/2,.03,(p.z+start.z)/2);temp.rotation.y=-Math.atan2(p.z-start.z,p.x-start.x)}}};
+document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tool").forEach(x=>x.classList.remove("active","wallactive"));b.classList.add(b.dataset.tool==="wall"?"wallactive":"active");tool=b.dataset.tool;if(tool==="wall")wallHint.classList.add("show");else{wallHint.classList.remove("show");start=null;if(temp){s.remove(temp);temp=null}}});
+document.onkeydown=e=>{if(e.key==="Escape"){start=null;if(temp)s.remove(temp);temp=null;wallHint.classList.remove("show");tool="select";document.querySelectorAll(".tool").forEach(x=>x.classList.remove("wallactive"));document.querySelector('[data-tool="select"]').classList.add("active")}};
+close.onclick=()=>select(null);del.onclick=()=>{if(selected){s.remove(selected);objs.splice(objs.indexOf(selected),1);select(null)}};home.onclick=()=>{c.position.set(12,10,14);ctl.target.set(0,1,0)};top.onclick=()=>{c.position.set(0,25,.01);ctl.target.set(0,0,0)};new.onclick=()=>location.reload();save.onclick=()=>{let b=new Blob([JSON.stringify(objs.map(o=>({name:o.name,type:o.userData.type,position:o.position.toArray(),size:o.userData.size,material:o.userData.material})),null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="archiforge-project.json";a.click()};png.onclick=()=>{let a=document.createElement("a");a.href=r.domElement.toDataURL("image/png");a.download="archiforge-view.png";a.click()};
+function resize(){r.setSize(v.clientWidth,v.clientHeight,false);c.aspect=v.clientWidth/v.clientHeight;c.updateProjectionMatrix()}addEventListener("resize",resize);resize();function loop(){requestAnimationFrame(loop);ctl.update();r.render(s,c)}update();loop();
