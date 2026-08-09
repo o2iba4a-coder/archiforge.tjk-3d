@@ -1,6 +1,64 @@
-<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ArchiForge 3D v0.2</title><link rel="stylesheet" href="style.css"></head><body>
-<header><div class="brand"><b>A</b><strong>ARCHIFORGE</strong><small>3D ARCHITECTURAL STUDIO · v0.2</small></div><span id="project">● Без названия</span><div class="actions"><select id="language"><option value="ru">RU · Русский</option><option value="tj">TJ · Тоҷикӣ</option></select><button id="new" data-i="new">＋ Новый</button><button id="save" data-i="save">Сохранить</button><button id="png" class="primary" data-i="png">Экспорт PNG</button></div></header>
-<main><aside class="tools"><h6 data-i="create">СОЗДАНИЕ</h6><button class="tool active" data-tool="select">⌁<small data-i="select">Выбор</small></button><button class="tool" data-tool="wall">▱<small data-i="wall">Стена</small></button><button class="tool">□<small data-i="room">Комната</small></button><button class="tool">⌑<small data-i="door">Дверь</small></button><button class="tool">▥<small data-i="window">Окно</small></button><hr><h6 data-i="view">ВИД</h6><button class="tool" id="top">⊞<small data-i="top">Сверху</small></button><button class="tool" id="home">⌂<small data-i="home">Главный</small></button></aside>
-<section id="viewport"><div class="badge" id="mode">● 3D ПЕРСПЕКТИВА</div><div id="wallHint" class="wallhint"><b data-i="wallmode">Режим стены</b><span data-i="wallhint">Нажмите первую точку, затем вторую. Esc — отмена.</span></div><div class="coords">X <b id="cx">0.00</b> Y <b id="cy">0.00</b> Z <b id="cz">0.00</b></div></section>
-<aside class="props"><div class="ph"><span data-i="properties">СВОЙСТВА</span><button id="close">×</button></div><div id="empty"><b data-i="none">Объект не выбран</b><p data-i="hint">Выберите объект на сцене, чтобы посмотреть его свойства.</p></div><div id="content" hidden><div class="obj"><b id="oname">Object</b><small id="otype">Element</small></div><label data-i="position">Положение</label><div class="row"><input id="px"><input id="py"><input id="pz"></div><label data-i="dimensions">Размеры W/H/D</label><div class="row"><input id="sx"><input id="sy"><input id="sz"></div><div id="wallprops" hidden><label data-i="length">Длина стены</label><div class="read" id="length">0</div><label data-i="thickness">Толщина</label><input id="thick"></div><label data-i="material">Материал</label><select id="mat"><option>Concrete</option><option>Brick</option><option>Glass</option><option>Wood</option><option>Steel</option></select><button id="del" class="danger" data-i="delete">Удалить объект</button></div><footer><span data-i="grid">Сетка</span> <b>0.50 m</b><span data-i="units">Единицы</span> <b data-i="metric">Метрические</b></footer></aside></main>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script><script src="i18n.js"></script><script type="module" src="app.js"></script></body></html>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ArchiForge 3D v0.3</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+<header class="topbar">
+  <div class="brand"><span class="logo">AF</span><div><b>ArchiForge</b><small>3D Studio</small></div></div>
+  <div class="top-actions">
+    <button id="new" title="Новый проект">＋</button>
+    <button id="undo" title="Отменить">↶</button>
+    <button id="redo" title="Повторить">↷</button>
+    <button id="save" title="Сохранить">💾</button>
+    <button id="png" title="PNG">▣</button>
+    <select id="language" aria-label="Language"><option value="ru">Русский</option><option value="tg">Тоҷикӣ</option></select>
+  </div>
+</header>
+
+<div class="workspace">
+  <aside class="leftbar">
+    <button class="tool active" data-tool="select"><span>↖</span><small data-i18n="select">Выбор</small></button>
+    <button class="tool" data-tool="wall"><span>╱</span><small data-i18n="wall">Стена</small></button>
+    <button class="tool" data-tool="room"><span>□</span><small data-i18n="room">Комната</small></button>
+    <button class="tool" data-tool="measure"><span>⌁</span><small data-i18n="measure">Размер</small></button>
+    <button class="tool" data-tool="pan"><span>✋</span><small data-i18n="pan">Панорама</small></button>
+    <div class="tool-sep"></div>
+    <button id="deleteTool" class="tool danger"><span>⌫</span><small data-i18n="delete">Удалить</small></button>
+  </aside>
+
+  <main id="viewport">
+    <div class="hint" id="wallHint">🧱 <b>Стена:</b> нажмите первую точку, затем вторую. Shift — строго по горизонтали/вертикали.</div>
+    <div class="status"><span>X <b id="cx">0.00</b></span><span>Y <b id="cy">0.00</b></span><span>Z <b id="cz">0.00</b></span></div>
+    <div class="camera-actions">
+      <button id="home">⌂</button><button id="top">TOP</button>
+    </div>
+  </main>
+
+  <aside class="properties">
+    <div class="panel-title"><span data-i18n="properties">Свойства</span><button id="close">×</button></div>
+    <div id="empty" class="empty"><div class="empty-icon">◇</div><b data-i18n="nothing">Ничего не выбрано</b><p data-i18n="choose">Выберите объект в сцене.</p></div>
+    <div id="content" hidden>
+      <div class="object-name"><span id="oname">Wall 1</span><small id="otype">Wall</small></div>
+      <label>Position</label>
+      <div class="grid3"><input id="px" type="number" step=".1"><input id="py" type="number" step=".1"><input id="pz" type="number" step=".1"></div>
+      <label>Size</label>
+      <div class="grid3"><input id="sx" type="number" step=".1"><input id="sy" type="number" step=".1"><input id="sz" type="number" step=".1"></div>
+      <div id="wallprops" hidden>
+        <label data-i18n="thickness">Толщина</label><input id="thick" type="number" step=".05" min=".05">
+        <div class="metric"><span data-i18n="length">Длина</span><b id="length">0 m</b></div>
+      </div>
+      <label data-i18n="material">Материал</label>
+      <select id="mat"><option>Concrete</option><option>Brick</option><option>Glass</option><option>Wood</option><option>Steel</option></select>
+      <button id="del" class="wide danger-btn" data-i18n="deleteObject">Удалить объект</button>
+    </div>
+  </aside>
+</div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

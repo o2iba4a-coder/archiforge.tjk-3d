@@ -1,1 +1,14 @@
-const T={ru:{new:"＋ Новый",save:"Сохранить",png:"Экспорт PNG",create:"СОЗДАНИЕ",select:"Выбор",wall:"Стена",room:"Комната",door:"Дверь",window:"Окно",view:"ВИД",top:"Сверху",home:"Главный",properties:"СВОЙСТВА",none:"Объект не выбран",hint:"Выберите объект на сцене, чтобы посмотреть его свойства.",position:"Положение",dimensions:"Размеры W/H/D",length:"Длина стены",thickness:"Толщина",material:"Материал",delete:"Удалить объект",grid:"Сетка",units:"Единицы",metric:"Метрические",wallmode:"Режим стены",wallhint:"Нажмите первую точку, затем вторую. Esc — отмена."},tj:{new:"＋ Нав",save:"Захира кардан",png:"Экспорти PNG",create:"ЭҶОД",select:"Интихоб",wall:"Девор",room:"Ҳуҷра",door:"Дар",window:"Тиреза",view:"НАМОИШ",top:"Аз боло",home:"Асосӣ",properties:"ХУСУСИЯТҲО",none:"Объект интихоб нашудааст",hint:"Барои дидани хусусиятҳо объектро дар саҳна интихоб кунед.",position:"Мавқеъ",dimensions:"Андозаҳои W/H/D",length:"Дарозии девор",thickness:"Ғафсӣ",material:"Мавод",delete:"Нест кардани объект",grid:"Шабака",units:"Воҳидҳо",metric:"Метрӣ",wallmode:"Ҳолати девор",wallhint:"Нуқтаи аввалро интихоб кунед, баъд нуқтаи дуюмро. Esc — бекор кардан."}};function t(k){return T[window.lang||"ru"][k]||k}function apply(l){window.lang=l;localStorage.setItem("aflang",l);document.querySelectorAll("[data-i]").forEach(e=>e.textContent=t(e.dataset.i));document.documentElement.lang=l==="tj"?"tg":"ru";}document.addEventListener("DOMContentLoaded",()=>{let l=localStorage.getItem("aflang")||"ru";language.value=l;language.onchange=()=>apply(language.value);apply(l)});
+const translations={
+ru:{select:"Выбор",wall:"Стена",room:"Комната",measure:"Размер",pan:"Панорама",delete:"Удалить",properties:"Свойства",nothing:"Ничего не выбрано",choose:"Выберите объект в сцене.",thickness:"Толщина",length:"Длина",material:"Материал",deleteObject:"Удалить объект",confirmNew:"Создать новый проект? Несохранённые изменения будут потеряны."},
+tg:{select:"Интихоб",wall:"Девор",room:"Ҳуҷра",measure:"Андоза",pan:"Ҷойивазкунӣ",delete:"Нест кардан",properties:"Хусусиятҳо",nothing:"Ҳеҷ чиз интихоб нашудааст",choose:"Объектро дар саҳна интихоб кунед.",thickness:"Ғафсӣ",length:"Дарозӣ",material:"Мавод",deleteObject:"Нест кардани объект",confirmNew:"Лоиҳаи нав эҷод шавад? Тағйироти захиранашуда гум мешаванд."}
+};
+window.t=(key)=>translations[localStorage.getItem("archiforge-lang")||"ru"][key]||key;
+window.applyLanguage=()=>{
+ const lang=localStorage.getItem("archiforge-lang")||"ru";
+ document.documentElement.lang=lang==="tg"?"tg":"ru";
+ document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent=translations[lang][el.dataset.i18n]||el.textContent);
+ const sel=document.getElementById("language");if(sel)sel.value=lang;
+};
+const lang=document.getElementById("language");
+if(lang)lang.addEventListener("change",()=>{localStorage.setItem("archiforge-lang",lang.value);applyLanguage()});
+applyLanguage();
