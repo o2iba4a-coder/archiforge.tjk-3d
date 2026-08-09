@@ -1,14 +1,6 @@
-const translations={
-ru:{select:"Выбор",wall:"Стена",room:"Комната",measure:"Размер",pan:"Панорама",delete:"Удалить",properties:"Свойства",nothing:"Ничего не выбрано",choose:"Выберите объект в сцене.",thickness:"Толщина",length:"Длина",material:"Материал",deleteObject:"Удалить объект",confirmNew:"Создать новый проект? Несохранённые изменения будут потеряны."},
-tg:{select:"Интихоб",wall:"Девор",room:"Ҳуҷра",measure:"Андоза",pan:"Ҷойивазкунӣ",delete:"Нест кардан",properties:"Хусусиятҳо",nothing:"Ҳеҷ чиз интихоб нашудааст",choose:"Объектро дар саҳна интихоб кунед.",thickness:"Ғафсӣ",length:"Дарозӣ",material:"Мавод",deleteObject:"Нест кардани объект",confirmNew:"Лоиҳаи нав эҷод шавад? Тағйироти захиранашуда гум мешаванд."}
-};
-window.t=(key)=>translations[localStorage.getItem("archiforge-lang")||"ru"][key]||key;
-window.applyLanguage=()=>{
- const lang=localStorage.getItem("archiforge-lang")||"ru";
- document.documentElement.lang=lang==="tg"?"tg":"ru";
- document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent=translations[lang][el.dataset.i18n]||el.textContent);
- const sel=document.getElementById("language");if(sel)sel.value=lang;
-};
-const lang=document.getElementById("language");
-if(lang)lang.addEventListener("change",()=>{localStorage.setItem("archiforge-lang",lang.value);applyLanguage()});
-applyLanguage();
+const tr={
+ru:{select:"Выбор",wall:"Стена",box:"Объект",image:"Изображение",measure:"Размер",delete:"Удалить",properties:"Свойства",nothing:"Ничего не выбрано",choose:"Выберите объект или загрузите изображение.",thickness:"Толщина",opacity:"Прозрачность",material:"Материал",deleteObject:"Удалить объект"},
+tg:{select:"Интихоб",wall:"Девор",box:"Объект",image:"Тасвир",measure:"Андоза",delete:"Нест кардан",properties:"Хусусиятҳо",nothing:"Ҳеҷ чиз интихоб нашудааст",choose:"Объектро интихоб кунед ё тасвир бор кунед.",thickness:"Ғафсӣ",opacity:"Шаффофият",material:"Мавод",deleteObject:"Нест кардани объект"}};
+window.t=k=>tr[localStorage.getItem("af-lang")||"ru"][k]||k;
+window.applyLang=()=>{const l=localStorage.getItem("af-lang")||"ru";document.querySelectorAll("[data-i18n]").forEach(x=>x.textContent=tr[l][x.dataset.i18n]||x.textContent);document.getElementById("language").value=l};
+document.getElementById("language").onchange=e=>{localStorage.setItem("af-lang",e.target.value);applyLang()};applyLang();
