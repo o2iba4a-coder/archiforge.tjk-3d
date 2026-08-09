@@ -1,62 +1,405 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>ArchiForge 3D v0.4</title>
-<link rel="stylesheet" href="style.css">
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>ArchiForge 3D</title>
+
+  <link rel="stylesheet" href="./style.css">
+
+  <!-- Three.js -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
   }
-}
-</script>
+  </script>
 </head>
+
 <body>
-<header class="topbar">
- <div class="brand"><span class="logo">AF</span><div><b>ArchiForge</b><small>3D Studio v0.4</small></div></div>
- <div class="actions">
-  <button id="new">＋</button><button id="undo">↶</button><button id="redo">↷</button>
-  <button id="save">💾</button><button id="png">▣</button>
-  <select id="language"><option value="ru">Русский</option><option value="tg">Тоҷикӣ</option></select>
- </div>
-</header>
 
-<div class="layout">
-<aside class="toolbar">
- <button class="tool active" data-tool="select"><b>↖</b><small data-i18n="select">Выбор</small></button>
- <button class="tool" data-tool="wall"><b>╱</b><small data-i18n="wall">Стена</small></button>
- <button class="tool" data-tool="box"><b>□</b><small data-i18n="box">Объект</small></button>
- <button class="tool" id="imageBtn"><b>▧</b><small data-i18n="image">Изображение</small></button>
- <input id="imageFile" type="file" accept="image/*" hidden>
- <button class="tool" data-tool="measure"><b>⌁</b><small data-i18n="measure">Размер</small></button>
- <div class="sep"></div>
- <button class="tool danger" id="deleteTool"><b>⌫</b><small data-i18n="delete">Удалить</small></button>
-</aside>
+  <!-- Верхняя панель -->
+  <header class="topbar">
 
-<main id="viewport">
- <div id="loading">ArchiForge 3D</div>
- <div id="hint"></div>
- <div class="coords">X <b id="cx">0.00</b> &nbsp; Y <b id="cy">0.00</b> &nbsp; Z <b id="cz">0.00</b></div>
- <div class="camera"><button id="home">⌂</button><button id="top">TOP</button></div>
-</main>
+    <div class="brand">
+      <div class="logo">AF</div>
 
-<aside class="panel">
- <div class="panel-head"><span data-i18n="properties">Свойства</span><button id="close">×</button></div>
- <div id="empty" class="empty"><div>◇</div><b data-i18n="nothing">Ничего не выбрано</b><p data-i18n="choose">Выберите объект или загрузите изображение.</p></div>
- <div id="content" hidden>
-  <div class="name"><b id="oname"></b><small id="otype"></small></div>
-  <label>Position</label><div class="g3"><input id="px" type="number" step=".1"><input id="py" type="number" step=".1"><input id="pz" type="number" step=".1"></div>
-  <label>Size</label><div class="g3"><input id="sx" type="number" step=".1"><input id="sy" type="number" step=".1"><input id="sz" type="number" step=".1"></div>
-  <div id="wallprops" hidden><label data-i18n="thickness">Толщина</label><input id="thick" type="number" min=".05" step=".05"></div>
-  <div id="imageprops" hidden><label data-i18n="opacity">Прозрачность</label><input id="opacity" type="range" min="0" max="1" step=".05" value="1"></div>
-  <label data-i18n="material">Материал</label><select id="mat"><option>Concrete</option><option>Brick</option><option>Glass</option><option>Wood</option><option>Steel</option></select>
-  <button id="del" class="delete-btn" data-i18n="deleteObject">Удалить объект</button>
- </div>
-</aside>
-</div>
-<script type="module" src="app.js"></script>
+      <div>
+        <strong>ArchiForge</strong>
+        <small>3D Architecture Studio</small>
+      </div>
+    </div>
+
+    <div class="actions">
+
+      <button id="new" title="Новый проект">
+        ＋
+      </button>
+
+      <button id="undo" title="Отменить">
+        ↶
+      </button>
+
+      <button id="redo" title="Повторить">
+        ↷
+      </button>
+
+      <button id="save" title="Сохранить">
+        💾
+      </button>
+
+      <button id="png" title="Экспорт PNG">
+        🖼
+      </button>
+
+      <select id="language">
+        <option value="ru">Русский</option>
+        <option value="tg">Тоҷикӣ</option>
+      </select>
+
+    </div>
+
+  </header>
+
+
+  <!-- Основная область -->
+  <div class="layout">
+
+
+    <!-- Левая панель инструментов -->
+    <aside class="toolbar">
+
+      <button
+        class="tool active"
+        data-tool="select"
+      >
+        <b>↖</b>
+        <small data-i18n="select">Выбор</small>
+      </button>
+
+
+      <button
+        class="tool"
+        data-tool="wall"
+      >
+        <b>╱</b>
+        <small data-i18n="wall">Стена</small>
+      </button>
+
+
+      <button
+        class="tool"
+        data-tool="box"
+      >
+        <b>□</b>
+        <small data-i18n="box">Объект</small>
+      </button>
+
+
+      <!-- Загрузка изображения -->
+      <button
+        class="tool"
+        id="imageBtn"
+      >
+        <b>▧</b>
+        <small data-i18n="image">
+          Изображение
+        </small>
+      </button>
+
+      <input
+        id="imageFile"
+        type="file"
+        accept="image/*"
+        hidden
+      >
+
+
+      <button
+        class="tool"
+        data-tool="measure"
+      >
+        <b>⌁</b>
+        <small data-i18n="measure">
+          Размер
+        </small>
+      </button>
+
+
+      <div class="sep"></div>
+
+
+      <button
+        class="tool danger"
+        id="deleteTool"
+      >
+        <b>⌫</b>
+        <small data-i18n="delete">
+          Удалить
+        </small>
+      </button>
+
+    </aside>
+
+
+
+    <!-- 3D viewport -->
+    <main id="viewport">
+
+      <div id="loading">
+        <div>
+          <strong>ArchiForge 3D</strong>
+          <br>
+          <small>Загрузка 3D-сцены...</small>
+        </div>
+      </div>
+
+
+      <div
+        id="hint"
+        class="hint"
+      ></div>
+
+
+      <!-- Координаты -->
+      <div class="coords">
+
+        X
+        <b id="cx">0.00</b>
+
+        &nbsp;
+
+        Y
+        <b id="cy">0.00</b>
+
+        &nbsp;
+
+        Z
+        <b id="cz">0.00</b>
+
+      </div>
+
+
+      <!-- Камера -->
+      <div class="camera">
+
+        <button id="home">
+          ⌂
+        </button>
+
+        <button id="top">
+          TOP
+        </button>
+
+      </div>
+
+    </main>
+
+
+
+    <!-- Правая панель -->
+    <aside class="panel">
+
+      <div class="panel-head">
+
+        <span data-i18n="properties">
+          Свойства
+        </span>
+
+        <button id="close">
+          ×
+        </button>
+
+      </div>
+
+
+      <!-- Ничего не выбрано -->
+      <div
+        id="empty"
+        class="empty"
+      >
+
+        <div>◇</div>
+
+        <b data-i18n="nothing">
+          Ничего не выбрано
+        </b>
+
+        <p data-i18n="choose">
+          Выберите объект или загрузите изображение.
+        </p>
+
+      </div>
+
+
+      <!-- Свойства объекта -->
+      <div
+        id="content"
+        hidden
+      >
+
+        <div class="name">
+
+          <b id="oname">
+            Object
+          </b>
+
+          <small id="otype">
+            Element
+          </small>
+
+        </div>
+
+
+        <!-- Position -->
+        <label>
+          Position
+        </label>
+
+        <div class="g3">
+
+          <input
+            id="px"
+            type="number"
+            step="0.1"
+          >
+
+          <input
+            id="py"
+            type="number"
+            step="0.1"
+          >
+
+          <input
+            id="pz"
+            type="number"
+            step="0.1"
+          >
+
+        </div>
+
+
+        <!-- Size -->
+        <label>
+          Size
+        </label>
+
+        <div class="g3">
+
+          <input
+            id="sx"
+            type="number"
+            step="0.1"
+          >
+
+          <input
+            id="sy"
+            type="number"
+            step="0.1"
+          >
+
+          <input
+            id="sz"
+            type="number"
+            step="0.1"
+          >
+
+        </div>
+
+
+        <!-- Wall properties -->
+        <div id="wallprops" hidden>
+
+          <label data-i18n="thickness">
+            Толщина
+          </label>
+
+          <input
+            id="thick"
+            type="number"
+            min="0.05"
+            step="0.05"
+          >
+
+        </div>
+
+
+        <!-- Image properties -->
+        <div id="imageprops" hidden>
+
+          <label data-i18n="opacity">
+            Прозрачность
+          </label>
+
+          <input
+            id="opacity"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value="1"
+          >
+
+        </div>
+
+
+        <!-- Material -->
+        <label data-i18n="material">
+          Материал
+        </label>
+
+        <select id="mat">
+
+          <option value="Concrete">
+            Concrete
+          </option>
+
+          <option value="Brick">
+            Brick
+          </option>
+
+          <option value="Glass">
+            Glass
+          </option>
+
+          <option value="Wood">
+            Wood
+          </option>
+
+          <option value="Steel">
+            Steel
+          </option>
+
+        </select>
+
+
+        <button
+          id="del"
+          class="delete-btn"
+          data-i18n="deleteObject"
+        >
+          Удалить объект
+        </button>
+
+      </div>
+
+    </aside>
+
+  </div>
+
+
+  <!-- Главное приложение -->
+  <script
+    type="module"
+    src="./app.js"
+  ></script>
+
 </body>
 </html>
